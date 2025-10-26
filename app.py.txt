@@ -1,0 +1,73 @@
+import streamlit as st
+from openai import OpenAI
+import os
+
+# --- 1. Configuração de Segurança e Inicialização da IA ---
+try:
+    # O st.secrets busca o valor que você vai configurar na plataforma de deploy
+    chave_secreta = st.secrets["external_api"]["openai_api_key"]
+    client = OpenAI(api_key=chave_secreta)
+except Exception as e:
+    st.error("Erro na configuração: A chave de API não foi encontrada. Configure 'external_api.openai_api_key' nos segredos do Streamlit Cloud.")
+    st.stop() # Para o aplicativo se não tiver a chave de segurança
+
+
+# 2. Configuração da Página e Título
+st.set_page_config(page_title="NutriTrack IA", layout="wide")
+st.title("🥑 NutriTrack IA: Seu Assistente Nutricional Inteligente")
+st.subheader("Pergunte ao nosso especialista em nutrição!")
+
+# 3. Inicializar Histórico da Conversa
+if "messages" not in st.session_state:
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Olá! Eu sou o NutriTrack AI. Posso te ajudar com dúvidas sobre calorias, dietas, e sugestões de alimentação. Como posso te ajudar hoje?"}
+    ]
+
+# 4. A Função Principal de Conversação com a IA
+def conversar_com_ia(prompt):
+    
+    # Define a 'personalidade' da IA (System Prompt)
+    system_prompt = (
+        "Você é o NutriTrack AI, um assistente nutricional experiente e amigável. "
+        "Suas respostas devem ser focadas em nutrição, dietas saudáveis, cálculo de calorias, "
+        "e sugestões de receitas. Mantenha um tom profissional e de apoio. "
+        "NUNCA forneça aconselhamento médico ou substitua um profissional de saúde."
+    )
+    
+    messages_to_send = [
+        {"role": "system", "content": system_prompt}
+    ]
+    
+    # Adiciona o histórico da conversa
+    for message in st.session_state.messages:
+        if message["role"] in ["user", "assistant"]:
+            messages_to_send.append({"role": message["role"], "content": message["content"]})
+            
+    messages_to_send.append({"role": "user", "content": prompt})
+
+    # Chama a API
+    response = client.chat.completions.create(
+        model="gpt-3.5-turbo", 
+        messages=messages_to_send,
+        stream=True
+    )
+    
+    return response
+
+# 5. Loop de Exibição e Interação
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if prompt := st.chat_input("O que você gostaria de saber?"):
+    
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+    with st.chat_message("assistant"):
+        with st.spinner("Pensando..."):
+            response_stream = conversar_com_ia(prompt)
+            full_response = st.write_stream(response_stream)
+            
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
