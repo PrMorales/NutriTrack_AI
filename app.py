@@ -1,9 +1,11 @@
 import streamlit as st
-from google import genai # Nova biblioteca!
-from google.genai import types
 import pandas as pd
 import datetime
 import os
+
+# Importações do Gemini com o nome completo do pacote
+from google import genai 
+from google.genai import types
 
 # --- 1. CONFIGURAÇÃO DE SEGURANÇA E IA (AGORA GEMINI) ---
 try:
