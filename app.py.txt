@@ -1,44 +1,41 @@
 import streamlit as st
 from openai import OpenAI
-import os
+import pandas as pd
+import datetime
 
-# --- 1. Configuração de Segurança e Inicialização da IA ---
+# --- 1. CONFIGURAÇÃO DE SEGURANÇA E IA ---
 try:
-    # O st.secrets busca o valor que você vai configurar na plataforma de deploy
+    # Acessa a chave de API do Streamlit Secrets (o que você colou lá)
     chave_secreta = st.secrets["external_api"]["openai_api_key"]
     client = OpenAI(api_key=chave_secreta)
 except Exception as e:
-    st.error("Erro na configuração: A chave de API não foi encontrada. Configure 'external_api.openai_api_key' nos segredos do Streamlit Cloud.")
-    st.stop() # Para o aplicativo se não tiver a chave de segurança
-
-
-# 2. Configuração da Página e Título
+    st.error("Erro na configuração: A chave de API não foi encontrada no Streamlit Secrets. Configure 'external_api.openai_api_key'.")
+    st.stop()
+    
+# --- CONFIGURAÇÃO INICIAL DA PÁGINA ---
 st.set_page_config(page_title="NutriTrack IA", layout="wide")
 st.title("🥑 NutriTrack IA: Seu Assistente Nutricional Inteligente")
-st.subheader("Pergunte ao nosso especialista em nutrição!")
+st.caption("Desenvolvido por PrMorales, usando Streamlit e OpenAI.")
 
-# 3. Inicializar Histórico da Conversa
+# Inicializa o histórico do chat e o registro de refeições na sessão
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Olá! Eu sou o NutriTrack AI. Posso te ajudar com dúvidas sobre calorias, dietas, e sugestões de alimentação. Como posso te ajudar hoje?"}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "Olá! Sou o NutriTrack IA. Posso te ajudar a registrar refeições e tirar dúvidas sobre nutrição. Qual seu objetivo de hoje?"}]
 
-# 4. A Função Principal de Conversação com a IA
+if "refeicoes" not in st.session_state:
+    st.session_state.refeicoes = []
+
+# --- FUNÇÃO DE CONVERSA COM A IA ---
 def conversar_com_ia(prompt):
-    
-    # Define a 'personalidade' da IA (System Prompt)
+    """Gera a resposta da IA como um especialista em nutrição."""
     system_prompt = (
         "Você é o NutriTrack AI, um assistente nutricional experiente e amigável. "
-        "Suas respostas devem ser focadas em nutrição, dietas saudáveis, cálculo de calorias, "
-        "e sugestões de receitas. Mantenha um tom profissional e de apoio. "
-        "NUNCA forneça aconselhamento médico ou substitua um profissional de saúde."
+        "Suas respostas devem ser focadas em nutrição, dietas saudáveis, e sugestões de receitas. "
+        "Mantenha um tom profissional e de apoio. NUNCA forneça aconselhamento médico."
     )
     
-    messages_to_send = [
-        {"role": "system", "content": system_prompt}
-    ]
+    messages_to_send = [{"role": "system", "content": system_prompt}]
     
-    # Adiciona o histórico da conversa
+    # Adiciona o histórico da conversa e o novo prompt
     for message in st.session_state.messages:
         if message["role"] in ["user", "assistant"]:
             messages_to_send.append({"role": message["role"], "content": message["content"]})
@@ -51,23 +48,83 @@ def conversar_com_ia(prompt):
         messages=messages_to_send,
         stream=True
     )
-    
     return response
 
-# 5. Loop de Exibição e Interação
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+# --- LAYOUT PRINCIPAL EM DUAS COLUNAS ---
+col_chat, col_data = st.columns([2, 1])
 
-if prompt := st.chat_input("O que você gostaria de saber?"):
+# ----------------------------------------------------
+# COLUNA 1: CHATBOT E REGISTRO DE REFEIÇÕES
+# ----------------------------------------------------
+with col_chat:
+    st.header("💬 Bate-papo Nutricional")
     
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # Exibir histórico de mensagens
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
 
-    with st.chat_message("assistant"):
-        with st.spinner("Pensando..."):
+    # Capturar novo input do usuário
+    if prompt := st.chat_input("O que você comeu ou qual sua dúvida?"):
+        
+        # 1. Exibir input do usuário
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        st.session_state.messages.append({"role": "user", "content": prompt})
+
+        # 2. Gerar e exibir resposta da IA (streaming)
+        with st.chat_message("assistant"):
             response_stream = conversar_com_ia(prompt)
             full_response = st.write_stream(response_stream)
+                
+        # 3. Adicionar resposta completa ao histórico
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
+
+
+# ----------------------------------------------------
+# COLUNA 2: REGISTRO DE DADOS E VISUALIZAÇÃO
+# ----------------------------------------------------
+with col_data:
+    st.header("📝 Rastreamento Diário")
+    
+    # Formulário de registro de refeição
+    with st.form("registro_refeicao"):
+        refeicao = st.selectbox("Tipo de Refeição", ["Café da Manhã", "Almoço", "Jantar", "Lanche", "Outro"])
+        alimento = st.text_input("Qual alimento/prato?", placeholder="Ex: Omelete de queijo, Maçã")
+        calorias = st.number_input("Calorias (kcal)", min_value=0, step=1)
+        
+        submit_button = st.form_submit_button("Adicionar Refeição")
+        
+        if submit_button and alimento:
+            st.session_state.refeicoes.append({
+                "Data": datetime.date.today(),
+                "Tipo": refeicao,
+                "Alimento": alimento,
+                "Calorias": calorias
+            })
+            st.success(f"✔️ {alimento} adicionado com sucesso!")
             
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.markdown("---")
+    
+    # Exibição e Análise de Dados (Seu MBA em Ação!)
+    if st.session_state.refeicoes:
+        df = pd.DataFrame(st.session_state.refeicoes)
+        df_hoje = df[df['Data'] == datetime.date.today()]
+        
+        st.subheader("Resumo de Hoje")
+        
+        # Total de Calorias
+        total_calorias = df_hoje['Calorias'].sum()
+        st.metric(label="Total de Calorias Consumidas", value=f"{total_calorias} kcal")
+        
+        # Gráfico de Distribuição por Tipo de Refeição
+        st.subheader("Distribuição das Refeições")
+        calorias_por_tipo = df_hoje.groupby('Tipo')['Calorias'].sum().sort_values(ascending=False)
+        st.bar_chart(calorias_por_tipo)
+
+        # Tabela completa (opcional, para visualização detalhada)
+        with st.expander("Ver Tabela Detalhada"):
+            st.dataframe(df_hoje, use_container_width=True)
+
+    else:
+        st.info("Comece a registrar suas refeições usando o formulário acima.")
