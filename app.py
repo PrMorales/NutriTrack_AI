@@ -1,12 +1,3 @@
-Com certeza! Você está prestes a ver o seu projeto NutriTrack IA funcionando.
-
-Aqui está o código app.py completo, incluindo todas as correções de compatibilidade, a função de teste simplificada para o Gemini, o foco na nutrição vegetariana e a interface de chat limpa.
-
-💻 Código Final e Completo: app.py
-Este código está pronto para ser copiado, enviado ao GitHub, e deve funcionar perfeitamente com a chave GEMINI_API_KEY nos seus segredos.
-
-Python
-
 import streamlit as st
 import os
 from google import genai
