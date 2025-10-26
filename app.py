@@ -103,7 +103,7 @@ with col_data:
                 "Alimento": alimento,
                 "Calorias": calorias
             })
-            st.success(f✔️ {alimento} adicionado com sucesso!")
+            st.success(f"✅ {alimento} adicionado com sucesso!")
             
     st.markdown("---")
     
