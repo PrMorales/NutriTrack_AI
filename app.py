@@ -57,39 +57,51 @@ if "messages" not in st.session_state:
 # --- FUNÇÃO DE CONVERSA COM A IA (CORRIGIDA E FOCADA) ---
 def conversar_com_ia(prompt):
     
-    # INSTRUÇÃO DETALHADA PARA FORÇAR A SAÍDA EM TABELA E DAR DICAS VEGETARIANAS
+    # 🌟 A INSTRUÇÃO DO SISTEMA É O QUE DEFINE O BOT
     system_instruction = (
         "Você é o NutriTrack AI, um especialista em nutrição focado em dietas vegetarianas. "
         "1. Analise o alimento ou refeição fornecida pelo usuário. "
         "2. Retorne uma tabela formatada em MARKDOWN com 7 colunas (Calorias, Açúcar, Vitamina C, Proteína, Ferro, Carboidratos, Gorduras). "
         "3. Sempre adicione uma breve dica de alimentação focada em vegetarianos, especialmente sobre como obter nutrientes como Ferro e Proteína."
-        "4. Mantenha um tom profissional e amigável. NÃO use nomes de pessoas ou pratos específicos de usuário."
+        "4. Mantenha um tom profissional e amigável."
     )
     
-    # Prepara o histórico (CORREÇÃO DE TypeError implementada)
-    history = []
+    # Prepara o histórico e o novo prompt, incluindo a instrução do sistema como a primeira parte
+    # O Gemini SDK mais recente prefere essa estrutura para a instrução.
+    contents_to_send = []
+    
+    # Adiciona a instrução do sistema
+    contents_to_send.append(
+        types.Content(
+            role="user",
+            parts=[types.Part.from_text(system_instruction)]
+        )
+    )
+    
+    # Adiciona o histórico da conversa (para manter o contexto)
     for m in st.session_state.messages:
-        # Garante que só mensagens válidas com 'content' sejam enviadas
         if 'content' in m and m['content'] and 'role' in m:
-            history.append(
+            # Garante que o role seja 'user' ou 'model' (formato Gemini)
+            role = "user" if m["role"] == "user" else "model"
+            contents_to_send.append(
                 types.Content(
-                    role="user" if m["role"] == "user" else "model", 
+                    role=role, 
                     parts=[types.Part.from_text(m["content"])]
                 )
             )
 
-    # Configurações e chamada do modelo
-    config = types.GenerateContentConfig(
-        system_instruction=system_instruction
+    # Adiciona a mensagem atual do usuário
+    contents_to_send.append(
+        types.Content(role="user", parts=[types.Part.from_text(prompt)])
     )
 
+    # Chama a API do Gemini com o modelo rápido e a lista de conteúdos
     response = client.models.generate_content_stream(
-        model='gemini-2.5-flash', # Modelo rápido e eficiente do Gemini
-        contents=history + [types.Content(role="user", parts=[types.Part.from_text(prompt)])],
-        config=config
+        model='gemini-2.5-flash',
+        contents=contents_to_send
+        # Removemos o 'config' desnecessário
     )
     return response
-
 # ----------------------------------------------------
 # COLUNA PRINCIPAL: CHATBOT
 # ----------------------------------------------------
