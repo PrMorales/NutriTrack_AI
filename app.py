@@ -1,80 +1,64 @@
 import streamlit as st
 import os
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 import pandas as pd
 import datetime
 
-# --- 1. CONFIGURAÇÃO DE SEGURANÇA E IA (GEMINI) ---
+# --- CONFIGURAÇÃO DE IA (LEITURA ROBUSTA) ---
 try:
-    # Lê a chave da variável de ambiente GEMINI_API_KEY
     chave_secreta = os.environ.get("GEMINI_API_KEY") 
 
     if not chave_secreta:
-        st.error("Erro: A chave GEMINI_API_KEY não foi encontrada. Configure nos segredos do Streamlit Cloud.")
+        st.error("Erro de Configuração: Chave GEMINI_API_KEY ausente.")
         st.stop()
         
     client = genai.Client(api_key=chave_secreta)
     
 except Exception as e:
-    st.error(f"Erro Fatal na Inicialização da API Gemini. Verifique os logs. {e}")
+    st.error(f"Falha na Inicialização da API: {e}")
     st.stop()
     
-# --- CONFIGURAÇÃO INICIAL DA PÁGINA E TEMA ---
+# --- CONFIGURAÇÃO INICIAL DA PÁGINA ---
 st.set_page_config(page_title="NutriTrack IA - Vegetariano", layout="wide")
 
-# Personalizando a interface para parecer mais limpa (Estilo Minimalista)
-st.markdown(
-    """
+# Estilo para UI limpa
+st.markdown("""
     <style>
-    /* Esconde o menu e o rodapé padrão do Streamlit */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    /* Centraliza e define largura máxima para a experiência de chat */
-    .stApp {
-        padding-top: 20px;
-        padding-bottom: 20px;
-    }
-    .st-emotion-cache-1r6r8qj {
-        max-width: 800px; 
-    }
+    .st-emotion-cache-1r6r8qj {max-width: 800px;}
     </style>
-    """, unsafe_allow_html=True
-)
+    """, unsafe_allow_html=True)
 
 st.title("🌱 NutriTrack IA: Análise Vegetariana Inteligente")
-st.subheader("Informe sua refeição e receba a análise nutricional e dicas!")
+st.subheader("Informe sua refeição e receba a análise e dicas!")
 
 # Inicializa o histórico do chat
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "model", "content": "Olá! Eu sou seu assistente NutriTrack IA. Informe-me o que você comeu (ex: 'Lentilha, arroz e salada de tomate') para receber a análise e dicas vegetarianas."}
+        {"role": "model", "content": "Olá! Eu sou seu assistente NutriTrack IA. Diga-me o que comeu para receber a análise nutricional e dicas vegetarianas."}
     ]
 
-
-# --- FUNÇÃO DE CONVERSA COM A IA (FINAL E SIMPLIFICADA) ---
+# --- FUNÇÃO DE CONVERSA COM A IA ---
 def conversar_com_ia(prompt):
-    """Gera a resposta da IA com foco na tabela nutricional e dicas."""
     
-    # 🌟 A INSTRUÇÃO DO SISTEMA É O QUE DEFINE O BOT
+    # INSTRUÇÃO DETALHADA PARA FORÇAR A SAÍDA EM TABELA E DAR DICAS VEGETARIANAS
     system_instruction = (
         "Você é o NutriTrack AI, um especialista em nutrição focado em dietas vegetarianas. "
         "1. Analise o alimento ou refeição fornecida pelo usuário. "
-        "2. Retorne uma tabela formatada em MARKDOWN com 7 colunas (Calorias, Açúcar, Vitamina C, Proteína, Ferro, Carboidratos, Gorduras). "
+        "2. Retorne uma tabela formatada em MARKDOWN com 7 colunas (Calorias, Açúcar, Vitamina C, Proteína, Ferro, Carboidratos, Gorduras). Use valores estimados e unidades. "
         "3. Sempre adicione uma breve dica de alimentação focada em vegetarianos, especialmente sobre como obter nutrientes como Ferro e Proteína."
-        "4. Mantenha um tom profissional e amigável."
+        "4. Mantenha um tom profissional."
     )
     
-    # Prepara o conteúdo, garantindo que o prompt do usuário seja a última entrada
-    contents_to_send = []
-    
     # 1. Adiciona a instrução do sistema
-    contents_to_send.append(
+    contents_to_send = [
         types.Content(
             role="user",
             parts=[types.Part.from_text(system_instruction)]
         )
-    )
+    ]
     
     # 2. Adiciona a mensagem atual do usuário
     contents_to_send.append(
@@ -114,8 +98,8 @@ if prompt := st.chat_input("Ex: 'Sanduíche de pasta de amendoim com banana'"):
                 response_stream = conversar_com_ia(prompt)
                 full_response = st.write_stream(response_stream)
             except Exception as e:
-                # Se falhar na comunicação, mostra o erro amigável (o que estava acontecendo)
-                st.error("Erro na comunicação com a IA. Tente novamente ou verifique sua chave GEMINI_API_KEY. O problema NÃO é o código!")
+                # Exibe o erro amigável
+                st.error("Erro na comunicação com a IA. Tente novamente ou verifique sua chave GEMINI_API_KEY.")
                 full_response = "Erro de API." 
         
     # 3. Adicionar resposta completa ao histórico
